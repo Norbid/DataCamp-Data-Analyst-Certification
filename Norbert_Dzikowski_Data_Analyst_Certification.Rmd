@@ -1,0 +1,116 @@
+---
+title: "Data Analyst Certification"
+author: "Norbert Dzikowski"
+date: "2024-09-24"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(forcats)
+library(dplyr)
+cert <- read.csv2("C:/Users/norbe/Desktop/Pliki CSV/product_sales.csv", header = TRUE, sep = ",")
+head(cert)
+summary(cert)
+cert$sales_method <- as.factor(cert$sales_method)
+levels(cert$sales_method)
+cert$sales_method <- fct_recode(cert$sales_method, "Email" = "email", "Email + Call" = "em + call")
+cert$revenue <- as.numeric(cert$revenue)
+cert$revenue[is.na(cert$revenue)] <- median(cert$revenue, na.rm=TRUE)
+cert$sales_method <- as.character(cert$sales_method)
+cert$customer_id <- as.character(cert$customer_id)
+cert$nb_sold <- as.numeric(cert$nb_sold)
+cert$revenue <- as.numeric(cert$revenue)
+cert$years_as_customer <- as.numeric(cert$years_as_customer)
+cert$nb_site_visits <- as.numeric(cert$nb_site_visits)
+cert$state <- as.character(cert$state)
+cert$revenue <- round(cert$revenue, 2)
+```
+
+### Data preparation
+
+
+```{r cert, echo=FALSE}
+library(knitr)
+df <- data.frame(Column = c('week', 'sales_method ', 'customer_id', 'nb_sold', 'revenue', 'years_as_customer', 'nb_site_visits', 'state ' ), Description = c('Week sale was made, counted as weeks since product launch. Therefore, I did not change type of data. It remains integer.', 'Which of the three sales methods (Call, Email + Call and Email) were used for that customer. After changing this variable to factor, there were 5 categories due to misspelling. I reduced their amount to three as it was supposed to be at the beginning. Then I rechanged this column type to character.', 'Character, unique identifier for the customer. I ensured it is type character.', 'Numeric, number of new products sold. I ensured it is type numeric.', 'Numeric, revenue from the sales, rounded to 2 decimal places. Had to change it to numeric from character. Then, I realized over 1000 thousand NAs were generated. I filled them with median value. Then I made sure it is rounded to two decimal places.', 'Numeric, number of years customer has been buying from us (company founded in 1984). As the company was founded in 1984, which was 40 years ago, I replaced outliers higher than 40 with this number. I ensured it is type numeric.', 'Numeric, number of times the customer has visited our website in the last 6 months. I ensured it is type numeric.', 'Character, location of the customer i.e. where orders are shipped. Did not change type of this column'
+))
+knitr::kable(df, "pipe")
+```
+
+### Data visualisation
+
+
+```{r, echo=FALSE}
+library(ggplot2)
+ggplot(cert, aes(x = week)) + geom_histogram(binwidth = 0.5) + labs(title = 'Week sale since product launch (in weeks)', x = "Week", y = "Count") + theme_classic()
+```
+
+The most frequent week sale was made in the first week after product launch. From weeks 2 to 5 there is not a significant difference. Week 6 occurs definitely most unlikely.
+
+```{r, echo=FALSE}
+cert %>%
+  ggplot(aes(x = fct_infreq(sales_method))) +
+  geom_bar(width = 0.5) +
+  labs(x = "Group", title = "Sales methods frequency", y = "Count") + theme_classic() 
+```
+
+The biggest amount of sales were made by customers by email. The opposite effect made a combined email and call method.
+
+```{r, echo=FALSE}
+ggplot(cert, aes(x = revenue)) + geom_boxplot(outlier.colour="red", outlier.size=1, width = 0.05) + xlim(0, 250) + theme_classic() + theme(axis.text.y=element_blank(), axis.ticks.y = element_blank()) + labs(title = 'Revenue distribution', x = "Revenue")
+```
+
+Median of the revenue is just under 100. Half of observatives is in range from over 50 to over 100. There are some outliers (marked with red colour in the graph). They occur only on the right side of the box, which means there are only extremely high values. 
+
+```{r, echo=FALSE}
+ggplot(cert, aes(x = revenue)) + geom_boxplot(outlier.colour="red", outlier.size=1) + facet_wrap(~sales_method) + coord_flip() + xlim(0, 250) + theme_classic() + labs(title = 'Revenue distribution', x = "Revenue") 
+```
+
+Even though email+call sales method is the least popular it gets us the most revenue.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+df3 <- cert %>% group_by(years_as_customer, sales_method) %>% summarise(sum = sum(revenue))
+ggplot(df3, aes(x = years_as_customer, y = sum, color = sales_method)) + geom_line() + xlim(0, 40) + labs(title = "Revenue over time for each of the methods", x = "Years as customers", y = "Revenue", color = "Sales method")
+```
+
+All three sales methods follow the same pattern over the year. The more years the less revenue we get regardless of the sales method.
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(cert, aes(years_as_customer)) + geom_histogram(binwidth = 0.5, aes(y=..density..), position="identity", alpha=1) + theme_classic() + labs(title = "Number of years customer has been buying from us (company founded in 1984)", x = "Years", y = "Density") + geom_density(alpha=0.6) + xlim(0, 40)
+```
+
+As you can see on the graph, the most of our customers are the ones who started bying from us in the last few years. The more years with us, the less fraction of our customers.
+
+```{r, echo=FALSE}
+ggplot(cert, aes(nb_site_visits)) + geom_bar() + theme_classic() + labs(title = "Number of times the customer has visited our website in the last 6 months", x = "Number of site visits", y = "Count")
+standard_deviation = sd(cert$nb_site_visits)
+
+```
+Graph indicates that this variable has normal distribution with standard deviation = 3.5 and mean = 25. The important thing for you is this means approximately 95% of our customers visited our site in the last 6 months from 18 to 32 times.
+
+
+```{r, echo=FALSE, fig.width=5, fig.height=7}
+ggplot(cert) + geom_bar(mapping = aes(x = fct_rev(fct_infreq(state)))) + coord_flip() + theme_classic() +   theme(axis.line.y = element_blank(), axis.ticks.y = element_blank(), axis.text = element_text(color = "black"), axis.title = element_blank(), legend.position = "none") + labs(y = "Count", title = "Frequency of the location of the customer")  
+```
+
+We got the most customers from California, Texas, New York and Florida. The rest is significantly behind them. Not even mention there are states where we have barely any customers.
+
+```{r, echo=FALSE, fig.width=5, fig.height=7}
+df2 <- tibble(cert %>%
+  group_by(state) %>%
+  summarize(money = sum(revenue))) 
+mean_money <- mean(df2$money)
+ggplot(df2, aes(x = fct_reorder(state, money), y = money)) + 
+  geom_point(size = 2) + coord_flip() + theme_classic() + geom_abline(intercept = mean_money, color = "black", linetype = 3) + annotate("text", x = 8, y = 37500, label = "Mean",
+    vjust = 1, size = 3, color = "black") + labs(title = "Sum of revenue in every state", y = "Sum of revenue", x = "State")
+```
+
+This plot tells us that people from four states mentioned above are not only buying the most often but also they are spending the most money on our products.
+
+
+### Conclusion
+
+My suggestion is that we should continue using combined email and call method. It does not require the highest amount of work compared to other methods, but gives us the highest amount of revenue.
